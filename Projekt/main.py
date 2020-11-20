@@ -9,7 +9,7 @@ years = [year for year in range(1880, 2020)]
 
 
 def task1():
-    base_path = 'test/'
+    base_path = 'names/'
     filenames = [os.path.join(base_path, entry) for entry in os.listdir(base_path)]
     column_names = ['Name', 'Gender', 'Count']
     dataframes = [pd.read_csv(filename, delimiter=',', index_col=None, names=column_names) for filename in filenames]
@@ -51,6 +51,10 @@ def task5(df: pd.DataFrame):
     years_as_rows_names['Female births'] = years_as_rows_gender['F']
     years_as_rows_names['Male births'] = years_as_rows_gender['M']
     years_as_rows_names['F/M'] = years_as_rows_names['Female births'] / years_as_rows_names['Male births']
+    years_as_rows_names['Difference'] = np.abs(
+        years_as_rows_names['Female births'] - years_as_rows_names['Male births'])
+    print("Year with biggest difference: ", years_as_rows_names['Difference'].idxmax())
+    print("Year with smallest difference: ", years_as_rows_names['Difference'].idxmin())
     fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
     ax1.plot(years_as_rows_names.index.values, years_as_rows_names['Births'].values, 'or')
     ax1.set_title('Total number of births per year')
@@ -60,9 +64,22 @@ def task5(df: pd.DataFrame):
     plt.show()
 
 
+def task6(df: pd.DataFrame):
+
+    male_df = pd.pivot_table(df.loc[df['Gender'] == 'M', :], index='Year', values='Count', columns=['Name'],
+                             aggfunc='sum', fill_value=0.0)
+    female_df = pd.pivot_table(df.loc[df['Gender'] == 'F', :], index='Year', values='Count', columns=['Name'],
+                               aggfunc='sum', fill_value=0.0)
+    print(male_df.sum(axis=0).sort_values(axis=0, ascending=False).head(1000))
+    print(female_df.sum(axis=0).sort_values(axis=0, ascending=False).head(1000))
+
+
+
+
 if __name__ == '__main__':
     df = task1()
     # task2(df)
     # task3(df)
     df_frequency = task4(df)
     task5(df_frequency)
+    task6(df_frequency)
