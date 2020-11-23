@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 import os
 import time
 
-# pandasgui.show(df, settings={'block': True})
+
 years = [year for year in range(1880, 2020)]
 
 
@@ -135,6 +135,7 @@ def task9(frame: pd.DataFrame, frame_statistics: pd.DataFrame):
     frame['Last letter'] = df['Name'].str.strip().str[-1]
     pivot_frame = frame.pivot_table(index=['Year'], columns=['Last letter', 'Gender'], values='Count', aggfunc='sum')
     pivot_frame = pivot_frame.div(pivot_frame.sum(axis=1), axis=0)
+    # TODO: Check whether sum over both genders
     all_years = pivot_frame.copy()
     pivot_frame = pivot_frame.loc[[1910, 1960, 2015], :]
     pivot_frame = pivot_frame.iloc[:, pivot_frame.columns.get_level_values(1) == 'M']
@@ -161,6 +162,17 @@ def task9(frame: pd.DataFrame, frame_statistics: pd.DataFrame):
     ax.plot(all_years.columns.values, all_years.loc['d', :], color='blue')
     plt.show()
 
+def task10(frame: pd.DataFrame):
+    df_male = frame.loc[frame['Gender'] == 'M', :]
+    df_female = frame.loc[frame['Gender'] == 'F', :]
+    df_male = df_male.set_index(['Name', 'Year'])
+    df_female = df_female.set_index(['Name', 'Year'])
+    merged = df_male.merge(df_female, left_index=True, right_index=True)
+    merged_grouped = merged.groupby(level='Name').sum()
+    most_frequent_male = merged_grouped['Count_x'].idxmax()
+    most_frequent_female = merged_grouped['Count_y'].idxmax()
+    print("Zadanie 10: Najpopularniejsze imię męskie nadawane też dziewczynkom to: ", most_frequent_male)
+    print("Zadanie 10: Najpopularniejsze imię żeńskie nadawane też chłopcom to: ", most_frequent_female)
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -173,4 +185,5 @@ if __name__ == '__main__':
     # task7(df_frequency, male_ranking, female_ranking)
     # task8(df_frequency_pivot, m1000_per_year, f_1000_per_year)
     task9(df_frequency, df_frequency_pivot)
+    task10(df_frequency)
     print(time.time() - start_time)
