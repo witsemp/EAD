@@ -173,9 +173,32 @@ def task10(frame: pd.DataFrame):
     most_frequent_female = merged_grouped['Count_y'].idxmax()
     print("Zadanie 10: Najpopularniejsze imię męskie nadawane też dziewczynkom to: ", most_frequent_male)
     print("Zadanie 10: Najpopularniejsze imię żeńskie nadawane też chłopcom to: ", most_frequent_female)
+    return merged
+
+def task11(frame: pd.DataFrame):
+    frame['Popularity'] = frame['frequency_male_x']/(frame['frequency_male_x']+frame['frequency_female_y'])
+    frame = frame.rename_axis(['Name', 'Year'])
+    frame_queried_1880 = frame.query("(Year >= 1880 & Year <= 1920)").loc[:, 'Popularity']
+    frame_queried_2000 = frame.query("(Year >= 2000 & Year <= 2019)").loc[:, 'Popularity']
+    frame_grouped_1880 = pd.DataFrame(frame_queried_1880.groupby(level='Name').mean())
+    frame_grouped_1880.columns = ['Popularity']
+    frame_grouped_2000 = pd.DataFrame(frame_queried_2000.groupby(level='Name').mean())
+    frame_grouped_2000.columns = ['Popularity']
+    merged = frame_grouped_1880.merge(frame_grouped_2000, left_index=True, right_index=True)
+    merged.columns = ['Popularity_x', 'Popularity_y']
+    merged['Popularity difference'] = np.abs(merged['Popularity_x']-merged['Popularity_y'])
+    merged.sort_values(by='Popularity difference', ascending=False, inplace=True)
+    frame_all_years = pd.DataFrame(frame.loc[:, 'Popularity'])
+    frame_all_years.columns = ['Popularity']
+    frame_all_years = frame_all_years.reset_index()
+    frame_all_years_pivot = frame_all_years.pivot_table(index='Name', columns='Year', values='Popularity', fill_value=0.0)
+    fig, ax = plt.subplots()
+    ax.plot(frame_all_years_pivot.columns.values, frame_all_years_pivot.loc['Shelby', :].values, color='red')
+    ax.plot(frame_all_years_pivot.columns.values, frame_all_years_pivot.loc['Ashley', :].values, color='blue')
+    plt.show()
 
 if __name__ == '__main__':
-    start_time = time.time()
+    # start_time = time.time()
     df = task1()
     # task2(df)
     # task3(df)
@@ -185,5 +208,6 @@ if __name__ == '__main__':
     # task7(df_frequency, male_ranking, female_ranking)
     # task8(df_frequency_pivot, m1000_per_year, f_1000_per_year)
     task9(df_frequency, df_frequency_pivot)
-    task10(df_frequency)
-    print(time.time() - start_time)
+    df_fm_names = task10(df_frequency)
+    task11(df_fm_names)
+    # print(time.time() - start_time)
