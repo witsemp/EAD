@@ -4,9 +4,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 import os
 import time
-
+import sqlite3
 
 years = [year for year in range(1880, 2020)]
+years_mortality = [year for year in range(1959, 2018)]
 
 
 def task1():
@@ -162,6 +163,7 @@ def task9(frame: pd.DataFrame, frame_statistics: pd.DataFrame):
     ax.plot(all_years.columns.values, all_years.loc['d', :], color='blue')
     plt.show()
 
+
 def task10(frame: pd.DataFrame):
     df_male = frame.loc[frame['Gender'] == 'M', :]
     df_female = frame.loc[frame['Gender'] == 'F', :]
@@ -175,8 +177,9 @@ def task10(frame: pd.DataFrame):
     print("Zadanie 10: Najpopularniejsze imię żeńskie nadawane też chłopcom to: ", most_frequent_female)
     return merged
 
+
 def task11(frame: pd.DataFrame):
-    frame['Popularity'] = frame['frequency_male_x']/(frame['frequency_male_x']+frame['frequency_female_y'])
+    frame['Popularity'] = frame['frequency_male_x'] / (frame['frequency_male_x'] + frame['frequency_female_y'])
     frame = frame.rename_axis(['Name', 'Year'])
     frame_queried_1880 = frame.query("(Year >= 1880 & Year <= 1920)").loc[:, 'Popularity']
     frame_queried_2000 = frame.query("(Year >= 2000 & Year <= 2019)").loc[:, 'Popularity']
@@ -186,16 +189,70 @@ def task11(frame: pd.DataFrame):
     frame_grouped_2000.columns = ['Popularity']
     merged = frame_grouped_1880.merge(frame_grouped_2000, left_index=True, right_index=True)
     merged.columns = ['Popularity_x', 'Popularity_y']
-    merged['Popularity difference'] = np.abs(merged['Popularity_x']-merged['Popularity_y'])
+    merged['Popularity difference'] = np.abs(merged['Popularity_x'] - merged['Popularity_y'])
     merged.sort_values(by='Popularity difference', ascending=False, inplace=True)
-    frame_all_years = pd.DataFrame(frame.loc[:, 'Popularity'])
-    frame_all_years.columns = ['Popularity']
-    frame_all_years = frame_all_years.reset_index()
-    frame_all_years_pivot = frame_all_years.pivot_table(index='Name', columns='Year', values='Popularity', fill_value=0.0)
+    names = merged.head(2).index.values
+    frame_copy = frame.reset_index()
+    frame_copy = frame_copy.loc[:, ['Year', 'Name', 'Count_x', 'Count_y']]
+    frame_copy = frame_copy.set_index('Name')
+    name1_df = frame_copy.loc[names[0], :]
+    name2_df = frame_copy.loc[names[1], :]
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+
+
+def task12():
+    conn = sqlite3.connect("USA_ltper_1x1.sqlite")
+    frame = pd.read_sql_query('SELECT * FROM USA_fltper_1x1 UNION ALL SELECT * FROM USA_mltper_1x1', conn)
+    conn.close()
+    return frame
+
+
+def task13(frame1: pd.DataFrame, frame2: pd.DataFrame):
+    frame1_queried = frame1.loc[:, ['Year', 'dx']]
+    frame1_pivot = pd.DataFrame(frame1_queried).pivot_table(index='Year', values='dx', aggfunc='sum')
+    frame2_queried = pd.DataFrame(frame2.loc[1959:2017, 'Births'])
+    frame2_queried.columns = ['Births']
+    print(frame1_pivot)
+    print(frame2_queried)
+    frame2_queried['Difference'] = frame2_queried['Births'] - frame1_pivot['dx']
+    rate_sum = frame2_queried['Difference'].sum()
+    rate_mean = frame2_queried['Difference'].mean()
+    print("Całkowity przyrost w okresie 1959-2017 wynosi: ", rate_sum)
+    print("Średni przyrost w okresie 1959-2017 wynosi: ", rate_mean)
+    return frame2_queried
+
+
+def task14(frame1: pd.DataFrame, frame2: pd.DataFrame):
+    print(frame1)
+    frame_queried = frame1.query("Age == 0").loc[:, ['Year', 'dx']]
+    frame_queried = pd.DataFrame(frame_queried).pivot_table(index='Year', values='dx', aggfunc='sum')
+    print(frame_queried)
+    print(frame2)
+    frame2['Survival rate'] = (frame2['Births'] - frame_queried['dx']) / frame2['Births']
+    print(frame2)
     fig, ax = plt.subplots()
-    ax.plot(frame_all_years_pivot.columns.values, frame_all_years_pivot.loc['Shelby', :].values, color='red')
-    ax.plot(frame_all_years_pivot.columns.values, frame_all_years_pivot.loc['Ashley', :].values, color='blue')
+    ax.plot(frame2.index.values, frame2['Survival rate'].values)
     plt.show()
+
+
+def task15(frame1: pd.DataFrame, frame2: pd.DataFrame):
+    def _get_5_year_period_mortality(year, df1: pd.DataFrame):
+        mortality_sum = 0
+        df_queried = pd.DataFrame(df1.loc[((df1['Year'] >= year) & (df1['Year'] <= year + 4)), :])
+        for i in range(5):
+            mortality_sum = mortality_sum + \
+                            df_queried.loc[(df_queried['Year'] == year + i) & (df_queried['Age'] == i), 'dx'].sum()
+        return mortality_sum
+
+    fq = pd.DataFrame(frame1.loc[:, ['Year', 'Age', 'Sex', 'dx']])
+    aggregated_mortality = [_get_5_year_period_mortality(year, fq) for year in years_mortality]
+    survival_ratio = (frame2['Births'].values - aggregated_mortality)/frame2['Births'].values
+    fig, ax = plt.subplots()
+    ax.plot(years_mortality, survival_ratio)
+    print(survival_ratio)
+    plt.show()
+
+
 
 if __name__ == '__main__':
     # start_time = time.time()
@@ -204,10 +261,16 @@ if __name__ == '__main__':
     # task3(df)
     df_frequency = task4(df)
     df_frequency_pivot = task5(df_frequency)
+    print(df_frequency_pivot)
     male_ranking, female_ranking, m1000_per_year, f_1000_per_year = task6(df_frequency)
     # task7(df_frequency, male_ranking, female_ranking)
     # task8(df_frequency_pivot, m1000_per_year, f_1000_per_year)
     task9(df_frequency, df_frequency_pivot)
     df_fm_names = task10(df_frequency)
-    task11(df_fm_names)
+    # task11(df_fm_names)
+    sql_frame = task12()
+    df_births_by_year = task13(sql_frame, df_frequency_pivot)
+    task14(sql_frame, df_births_by_year)
+    task15(sql_frame, df_births_by_year)
+
     # print(time.time() - start_time)
