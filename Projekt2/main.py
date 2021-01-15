@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import pandasgui
 from typing import List
+import datetime as dt
 
 
 # pd.options.display.max_columns = None
@@ -101,6 +102,39 @@ def strip_active_cases(confirmed: pd.DataFrame,
     return confirmed, deaths, recovered, active
 
 
+def calculate_monthly_mortality(deaths: pd.DataFrame, recovered: pd.DataFrame):
+    def transpose_and_add_date_column(frame: pd.DataFrame):
+        new_frame = frame.T
+        new_frame['Year/Month'] = new_frame.index.to_series().dt.strftime('%Y-%m')
+        return new_frame
+
+    daily_deaths = deaths.copy()
+    daily_recoveries = recovered.copy()
+    dates = daily_deaths.columns.values[4:]
+
+    for i, date in enumerate(dates):
+        if i > 1:
+            previous_date = pd.to_datetime(date) - pd.DateOffset(days=1)
+            daily_deaths.loc[:, pd.to_datetime(date)] = deaths.loc[:, pd.to_datetime(date)] - deaths.loc[:,
+                                                                                              pd.to_datetime(
+                                                                                                  previous_date)]
+
+            daily_recoveries.loc[:, pd.to_datetime(date)] = recovered.loc[:, pd.to_datetime(date)] - recovered.loc[:,
+                                                                                                     pd.to_datetime(
+                                                                                                         previous_date)]
+    daily_deaths = daily_deaths.drop(labels=daily_deaths.columns.values[:4], axis=1)
+    daily_recoveries = daily_recoveries.drop(labels=daily_recoveries.columns.values[:4], axis=1)
+    daily_deaths = transpose_and_add_date_column(daily_deaths)
+    daily_recoveries = transpose_and_add_date_column(daily_recoveries)
+    daily_deaths = daily_deaths.groupby(['Year/Month']).sum()
+    daily_recoveries = daily_recoveries.groupby(['Year/Month']).sum()
+    daily_deaths['Monthly mortality'] = daily_deaths.sum(axis=1)
+    daily_recoveries['Monthly recoveries'] = daily_recoveries.sum(axis=1)
+    daily_deaths['Accumulated monthly mortality'] = (daily_deaths['Monthly mortality'] / daily_recoveries['Monthly recoveries'])
+    print(daily_deaths)
+
+
+
 if __name__ == '__main__':
     # pandasgui.show(deaths_df, settings={'block': True})
     confirmed_df, deaths_df, recovered_df = read_data()
@@ -119,3 +153,4 @@ if __name__ == '__main__':
     confirmed_df, deaths_df, recovered_df, active_cases_df = strip_active_cases(confirmed_df, deaths_df, recovered_df,
                                                                                 active_cases_df)
 
+    calculate_monthly_mortality(deaths_df, recovered_df)
